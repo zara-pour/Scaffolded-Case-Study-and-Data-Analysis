@@ -1,6 +1,6 @@
 ---
-title: "Assessment2:Scaffolded Case Study and Data Analysis"
-author: 'Zahra Ahmadpour(a1863476)'
+title: "Scaffolded Case Study and Data Analysis"
+author: 'Zahra Ahmadpour'
 date: "18/11/2022"
 output:
   html_document: default
