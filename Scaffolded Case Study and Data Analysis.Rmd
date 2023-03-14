@@ -1,0 +1,443 @@
+---
+title: "Assessment2:Scaffolded Case Study and Data Analysis"
+author: 'Zahra Ahmadpour(a1863476)'
+date: "18/11/2022"
+output:
+  html_document: default
+  word_document: default
+---
+
+
+
+### 1. Load the dataset and clean the data:
+#### 1.1. Load the dataset:
+In this part I load the affair dataset using the read_csv function, then I convert it to a tibble with as_tibble function and show the first 6 rows by head function.
+
+```{r}
+# load the necessary libraries:
+pacman::p_load(modelr,lubridate,DT,tidyr,stringr,tidyverse,lubridate,
+               caret,mlbench,inspectdf,readr,nycflights13,moments, 
+               correlation,Hmisc,car, forecast,knitr,glmx ,skimr,
+               titanic , tidymodels,ISLR,vip,glmnet)
+
+# read the csv file:
+affairs  <- read_csv (file ='F:/affairs.csv')
+
+# convert it to a tibble:
+affairs <- affairs %>% 
+  as_tibble()
+
+#show the first 6 rows:
+head(affairs)
+```
+
+#### 1.2. The outcome variable and the predictor variables:  
+The aim is to build a predictive model that will determine whether an individual is likely to engage in extramarital affairs based on various aspects of their lives, Then **the outcome variable** is **affair** and **the predictor variables** are **other variables except affair**, that are include **sex, age, ym, child, religious, education, occupation and rate**.
+
+#### 1.3. Skim the data:
+I use the 'Chinese' as a locale in setlocale function to show the hist column in skim's tables, then I used the skim function. 
+
+```{r}
+Sys.setlocale(locale='Chinese')# change the font to show the hist in skim
+skim(affairs)
+```
+
+Based on 'n-missing' column in 'variable type' tables, **there isn't any missing data** in our dataset.
+
+**We have 601 observations on 9 variables(column)**so, we have **601*9=5409 observations in total**.
+
+**The 'affair', 'religious', 'education', 'occupation' and 'rate' variables are categorical but they incorrectly read in numeric type**.
+
+#### 1.4. Change the variables type: 
+I convert the affair variable from 0/1 to a yes/no and change the character variables (affair, child, sex) to factor using the mutate, ifelse and as.factor functions.
+
+```{r}
+affairs <- affairs %>%
+  mutate(affair=as.factor(ifelse(affair==0,"no","yes")),
+         sex=as.factor(sex),
+         child=as.factor(child))
+```
+
+#### 1.5. Skim the data again and investigate the datas:
+I use the skim function to investigate the datas.
+
+```{r}
+skim(affairs)
+```
+
+**a.** Based on 'variable type: factor' table, 150 people responded "yes" as having had an affair and also, 430 people responded "yes" as having children.
+
+**b.** According to 'variable type: numeric' **the mean age is 32.5** and **the mean response on the religious scale is 3.12**.
+
+**c.** The output shows that the dataset has six numeric variables (labelled as 'dbl') that the mean of them is far from 0 and standard deviation is not 1. Then we need normalize the variables to scale and center the dataset receiving the mean of 0 and standard deviation of 1 for the numeric variables.
+
+### 2. Exploratory data analysis: 
+#### 2.1. Proportion of female who have or not an affair:
+I use count and spread functions to know the number of female and male that have or not an affair then I add the columns of proportion of each (yes or no) using mutate function.
+
+```{r}
+affairs %>% 
+  count(affair,sex) %>% 
+  spread(affair,n) %>%
+  mutate( prop_no= no / sum(no) , prop_yes= yes/sum(yes))
+```
+
+The proportion of females that responded 'no' to an affair is 0.539 (or ~54%). 
+
+The proportion of females that responded 'yes' to an affair is 0.48 (or 48%).
+
+Therefore, the proportion of females who will have an affair is (0.54-.48=) 0.06 (6%) less than those who will not. Also, the proportion of female who have an affair to female who have not an affair is 72/(243+72) =0.23 (or ~23%).
+
+#### 2.2. Proportion of people who have children that they have or not an affair: 
+I use count and spread functions to know the number of people who have or not children and their having or not an affair, then I add the columns of proportion of each (yes or no) using mutate function.
+ 
+```{r}
+affairs %>% 
+  count(affair,child) %>% 
+  spread(affair,n)%>%
+  mutate( prop_no= no / sum(no) , prop_yes= yes/sum(yes))
+
+```
+
+The proportion of participants who responded "yes" to having an affair 
+had children is 0.82 (or 82%) 
+
+The proportion of participants who responded "no" to having an affair 
+had children is 0.681 (or 68%) 
+ 
+Based on these, the participants who responded "yes" to having an affair **are more likely to have children** because the proportion of people who responded yes to having an affair and children (both) is more than the proportion of people who responded yes to having an affair and no to having children (0.82>0.18). 
+
+#### 2.3. Side-by-side box plots of "rate" for each level of "affair":
+I produce the side by side box plot to see the distribution of having or not an affair with the level of people's satisfaction with their marriage.
+
+```{r}
+ggplot(affairs,aes(x=affair, y=rate))+
+  geom_boxplot()+
+  theme_minimal()+
+  labs(x="affairs",y="rate of marriage",
+       caption = "Figure 1: Side-by-side box plots of rate for each level of affair")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+```
+
+By looking at the side by side box plots of rate for each level of affair we can see, **the people who have an affair, rate their marriages worse than those who do not have an affair.**. Then, the people who are less satisfied of their marriage are more likely to have an affair.
+
+#### 2.4. bar plot of rate facet by sex and affair:
+In this part I produce tree types of bar plot to compare the rate for each level of affair and sex.
+
+```{r}
+#bar plots of rate proportion grouped by sex and facet by affair
+ggplot(affairs, aes(x=rate, group=interaction(sex, affair), fill=sex))+
+  geom_bar(aes(y=..prop..),stat="count", position=position_dodge())+
+  facet_grid(~affair, scales="free", space="free_x")+
+  labs(caption = "Figure 2-1: bar plots of rate proportion grouped by sex and facet by affair")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+
+# bar plots of rate proportion facet by sex and affair
+ggplot(affairs, aes(x=rate, fill=sex))+
+  geom_bar(aes(y=..prop..),stat="count", position=position_dodge())+
+  facet_grid(~interaction(sex, affair), scales="free", space="free_x")+
+  labs(caption = "Figure 2-2: bar plots of rate proportion facet by sex and affair")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+
+# bar plots as a percentage of proportion:
+ggplot(affairs, aes(x=rate, fill=sex))+
+  geom_bar(aes(y=..prop..),stat="count", position=position_dodge())+
+  geom_text(aes(label=scales::percent(round(..prop..,2)), 
+                y=..prop..), stat="count", vjust=-.5) +
+  scale_y_continuous(limits=c(0,1),labels = scales::percent) +
+  ylab("Percent of Sample") +
+  facet_grid(~interaction(sex, affair), scales="free", space="free_x")+
+  labs(caption = "Figure 2-3: bar plots as a percentage of proportion")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+```
+
+The shape of the distribution of rate for males who responded "yes" to having an affair is Bimodal  and left-skewed and the shape of the distribution of rate for females who responded "yes" to having an affair is left-skewed.
+As we can see the shapes of the distribution of rate for male and female who responded "no" to having an affair are left skewed but the slope and skewness of them are more than female and male who have an affair. 
+
+#### 2.5. Side by side bar plot of education filled by affair:
+I show the side by side bar plot of education filled by affair using ggplot and geom_bar functions.
+
+```{r}
+#side by side bar plots of education filled by affair
+ggplot(affairs, aes(x=education, fill=affair))+
+  geom_bar(aes(y=..prop..),stat="count", position=position_dodge())+
+  labs(caption = "Figure 3: side by side bar plots of education filled by affair")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+
+edu_affair<- affairs %>% count(affair, education) %>% spread (affair,n) %>%
+  mutate( prop_no= no / sum(no) , prop_yes= yes/sum(yes))
+skewness(edu_affair$prop_no)
+skewness(edu_affair$prop_yes)
+```
+
+According to the bat plot, the proportion of people who have an affair in ranging 20 are equal to those who have not and they are more in ranging 18 and 17 Also, the skewness to left of education for people who have an affair is more than those who have not, **then we can say people who have an affair seem more educated.**
+
+The shape of bar plot of education for people who have or not an affair (both) is Bimodal (one peak in ranging 14 and one in 18) and left skewed. 
+
+### 3. Split and preprocess:
+
+#### 3.1. Split the data
+At first I set a seed  for reproducibility, then I  use initial_split function to split a dataset to 2 part that first part contains 3/4 of total observations and the second one 1/4.
+
+```{r}
+set.seed(1223)
+affairs_split <- initial_split(affairs)
+affairs_split
+```
+
+**450 observations are in the training set and 151 observations are in the testing set** and there are 601 observations in total.
+
+#### 3.2. Obtain the training and testing set:
+I use the training and testing function to obtain the training and testing set and I show the first 6 rows of training set by using the head function.
+
+```{r}
+affairs <- training(affairs_split)
+head(affairs)
+affairs_test <- testing(affairs_split)
+```
+
+#### 3.3. step_downsample:
+I use the skim  function on the training set to see the number of each level of affair.
+
+```{r}
+skim(affairs)
+```
+ 
+**step_downsample** specifies a recipe step that removes rows from a dataset to equalize the occurrence of levels at a given factor level [1]. So, when we realize a bias in our factor variable, that the most of observations are in special level, we should use the downsampling to reducing the observation with a biased level and receiving the equal number of each levels [2].
+
+As we can see in 'variable type: factor' table in the output of skim function for training set, **there are 341 levels as 'no' and 109 levels as 'yes' in affair variable**, therefor, the training set is **unbalanced** in our factor outcome and there are **biases in our levels** then we should use the downsampling to reduce the level of 'no' and receiving the **equal number of each levels**.
+
+#### 3.4. Create a recipe:
+At first, I use the recipe function on my model in training set, then I use step_downsample from Themis library on my affair variable (to balance the training set on each levels of affair), step_dummy on all categorical (nominal) predictors (to convert the categorical predictor to dummy variables) and step_normalize on all predictors (to get the mean=0 and std=1). At last i prepre it by prep function and print it to see the steps.
+
+```{r}
+library(themis)
+library(tidymodels)
+affairs_recipe <- recipe(affair~. ,data=affairs) %>%
+  step_downsample(affair) %>% #a.Down sample the data on affair
+  step_dummy(all_nominal_predictors()) %>% #Convert all categorical predictors                                             to dummy variables
+  step_normalize(all_predictors()) %>% #Normalise all of the predictor                                                 variables to have mean 0 and standard                                          deviation 1.
+  prep()
+affairs_recipe 
+```
+
+#### 3.5. Preprocessing:
+I get the preprocessed training and testing set by juice and bake functions.
+
+```{r}
+affairs_preproc <- affairs_recipe %>%
+  juice() 
+
+affairs_test_preproc <- affairs_recipe %>%
+  bake(affairs_test)
+```
+
+#### 3.6. Skim the preprossed training data:
+I use the skim function to see the preprocessed training set.
+
+```{r}
+skim(affairs_preproc)
+```
+
+As we can see in the tables, the preprocessing steps have done what we expect. We have the equal number of each levels of affair (109) that we expected from our step_downsample of recipe, it also converted all categorical predictors to dummy variables with step_dummy and normalized all of the predictor variables to have mean ~0 and standard deviation=1 with step_normalize. Finally, juice function grabbed the data from recipe. then it 
+
+### 4. Tune and fit a model:
+#### 4.1. Model specification:
+I specified a k-nearest neighbors model using the nearest_neighbor function with mode of classification and tune the neighbors parameter.
+
+```{r}
+near_neighbour_spec <- nearest_neighbor(mode='classification', neighbors = tune())
+```
+
+#### 4.2. 5-fold cross validation set:
+At first I set a seed  for reproducibility, then I make a 5-fold cross validation set using the vfold_cv function on my preprocessed training set.
+
+```{r}
+set.seed(1223)
+affairs_cv <- vfold_cv(data=affairs_preproc, v=5, starta=affair)
+```
+
+#### 4.3. gride_regular in range 5 to 75 with 25 levels:
+I make a grid of neighbors in range from 5 to 75 with 25 unique values using grid_regular function.
+
+```{r}
+kvalue_grid <- grid_regular(neighbors(range=c(5,75)),levels=25)
+```
+
+#### 4.4. tune_grid the k-nearest neighbours model using cross-validation sets:
+I tune the k-nearest neighbors model with the cross validation sets and grid of neighbors using tune_gride function.
+
+```{r}
+affairs_grid <- tune_grid(near_neighbour_spec, 
+                          affair~., 
+                          resample=affairs_cv,
+                          gride=lambada_grid)
+affairs_grid
+```
+
+#### 4.5. Plot of accuracy and Auc
+After collecting the metrics by collect_metrics function, I show the plots of  the accuracy and AUC for different values of neighbors.
+
+```{r}
+affairs_grid %>%
+  collect_metrics()%>%
+  ggplot(aes(x= neighbors,
+             y= mean,
+             colour= .metric))+
+  geom_line()+
+  facet_wrap(~.metric, scales='free', nrow=2)+
+  scale_x_log10()+
+  labs(caption = "Figure 4: plot of accuracy and AUC for different values of k")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+```
+
+As we can see in the plots, the values of accuracy and AUC increased by neighbors and wont be fixed in any values, so based on the plots, a value of k=15 giving the best (maximum) accuracy and AUC (both).
+
+#### 4.6. The best accuracy:
+I determine the best accuracy of tuned model with select_best function.
+
+```{r}
+best_accuracy <- select_best(affairs_grid,"accuracy")
+best_accuracy
+
+```
+
+**The best accuracy based on the tuned model is 15.**
+
+#### 4.7. Finalize the model:
+I put the neighbor of 15 in my model to finalize it. Then, I print the specification of model.
+
+```{r}
+near_neighbour_spec <- nearest_neighbor(mode='classification', neighbors = 15)
+near_neighbour_spec
+```
+
+#### 4.8. Fit the model: preprocessed training data:
+I fit the model to preprocessed training data by fi function.
+
+```{r}
+affairs_knn <- near_neighbour_spec %>%
+  fit(affair~., data=affairs_preproc)
+
+```
+
+### 5. Evaluation:
+#### 5.1. Class predictions:
+I get class predictions from the preprocessed test set using predict function and show the first six rows by head function.
+
+```{r}
+affairs_preds <- predict(object= affairs_knn, 
+                        new_data= affairs_test_preproc,
+                        type= "class")
+head(affairs_preds) 
+```
+
+#### 5.2. Add the truth to class predictions:
+I use the bind_cols function for adding the true values of preprocessed test set to my class predictions.
+
+```{r}
+affairs_preds <- affairs_preds %>% 
+  bind_cols(affairs_test_preproc %>% 
+              select (affair))
+head(affairs_preds)
+```
+
+#### 5.3. Confusion matrix of the predictions:
+I use the conf_mat function to obtain the confusion matrix of the predictions.
+
+```{r}
+affairs_preds %>% 
+  conf_mat(truth=affair, estimate=.pred_class)
+```
+
+#### 5.4. The sensitivity and specificity of the model:
+From your confusion matrix, calculate the sensitivity and specificity of
+your model. Interpret these values in context.
+```{r}
+pred_sens <- 70/(70+40)
+pred_sens
+
+pred_spec <- 22/(19+22)
+pred_spec
+```
+
+The sensitivity is 0.63636636 and the specificity is 0.5365854 that they are a bit more than half and are not good. then our model with cut-off 0.5 is predicting not good. 
+
+#### 5.5. Predicted class probabilities:
+I obtain predicted class probabilities from the model by predict function with type as 'prob' and add it to predictions then I show the first 6 rows.
+
+```{r}
+affairs_preds <- affairs_preds %>%
+  bind_cols(predict( affairs_knn,
+                    new_data = affairs_test_preproc,
+                        type= "prob") )
+head(affairs_preds)
+```
+
+#### 5.6. ROC curve:
+I use the roc_curve and auto plot functions to receive the ROC curve.
+
+```{r}
+affairs_preds %>%
+  roc_curve(truth=affair, estimate= .pred_no) %>% 
+  autoplot()+
+  labs(caption = "Figure 5: First ROC curve.")+
+  theme(plot.caption = element_text(hjust = 0, size = 14))
+```
+
+**The area under the ROC curve** is a bit more than 0.5 but far from 1, that show the model predicting **not good.**
+
+#### 5.7. AUC of ROC curve:
+I obtain the AUC using roc_auc function. Does this value match what you see in the
+ROC curve? Why?
+```{r}
+affairs_preds %>%
+  roc_auc(truth=affair, estimate= .pred_no)
+```
+
+**The value of AUC is 0.591 that is match with the area under the ROC curve** because it is more than half and far from 1, then the model is doing not good at distinguishing between people who have affair and those that have not.
+
+#### 5.8a. Tibble of Bono's information:
+I prepare a tibble of of Bono's information using tibble function.
+
+```{r}
+Bono_info_tibble <- tibble(
+  sex='male', age=47, ym=15,child='no',religious=2,
+  education=20, occupation=6, rate=5)
+Bono_info_tibble
+```
+
+#### 5.8b. Preprocess Bono's information:
+I use the bake function and the recipe to preprocess Bono's information.
+
+```{r}
+affairs_Bono_preproc <- affairs_recipe %>%
+  bake(Bono_info_tibble)
+affairs_Bono_preproc
+```
+  
+#### 5.8c.Predicted probability:
+I get the predicted probability that Bono will have an affair.
+```{r}
+affairs_Bono_preds <- predict (affairs_knn, new_data=affairs_Bono_preproc,
+                               type='prob')
+affairs_Bono_preds  
+```
+
+According to our prediction the Bono's probability of having affair is 0.827 and the probability of not having affair is 0.173 then the most probability or class of prediction is yes.
+
+#### 5.8d.
+Based on our prediction the Bono's probability of having affair is 0.827 and the probability of not having affair is 0.173, then the most probability or class of prediction is yes. Therefore, we predict Bono will have an affair.
+But according to the value of AUC and the ROC curve that showed the model is doing not good at distinguishing between people who have affair and those that have not, I cant trust 100% to our result and we need to consider more information to analysis.
+In total, I will not share this information with Bono's partner because I am not 100% sure that he will have an affair or not also it is against the **ethical standard and privacy**.[3]
+
+### Refrences:
+
+1. Down-Sample a Data Set Based on a Factor Variable, Source: R/step_downsample.R, https://themis.tidymodels.org/reference/step_downsample.html
+
+2. How to deal with imbalance classes with downsampling in Python? 06 Jul 2022, https://www.projectpro.io/recipes/deal-with-imbalance-classes-with-downsampling-in-python
+
+3. Privacy Act 1988, No. 119, 1988.
+
+### The end
+
